@@ -2,6 +2,8 @@ module backend
 
 go 1.20
 
+require github.com/lib/pq v1.10.9
+
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/bep/godartsass v1.2.0 // indirect
@@ -14,7 +16,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gohugoio/hugo v0.125.2 // indirect
-	github.com/lib/pq v1.10.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/hashstructure v1.1.0 // indirect
