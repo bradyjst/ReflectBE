@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "./internal/db/queries"
+    schema: "./internal/db/migrations"
+    gen:
+      go:
+        package: "dao"
+        out: "./internal/db/dao"
+        emit_interface: true
+        emit_empty_slices: true
