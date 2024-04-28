@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+
+	// Import your sqlc generated package
 
 	_ "github.com/lib/pq"
 )
@@ -15,6 +18,19 @@ type Income struct {
 	Income1 string `json:"income1"`
 	Income2 string `json:"income2"`
 	Income3 string `json:"income3"`
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+func handleOptions(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 }
 
 func main() {
@@ -27,35 +43,36 @@ func main() {
 	}
 	defer db.Close()
 
+	queries := db.New(db) // Create an instance of sqlc queries
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, your database is connected!")
 	})
 
 	http.HandleFunc("/submit-income", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Unsupported method", http.StatusMethodNotAllowed)
-			return
-		}
+		enableCors(&w)
+		handleOptions(w, r)
+		if r.Method == "POST" {
+			defer r.Body.Close()
+			var income Income
+			if err := json.NewDecoder(r.Body).Decode(&income); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 
-		var income Income
-		if err := json.NewDecoder(r.Body).Decode(&income); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
+			err := queries.CreateIncome(context.TODO(), db.CreateIncomeParams{
+				Income1: income.Income1,
+				Income2: income.Income2,
+				Income3: income.Income3,
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-		if err := insertIncome(db, income); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			fmt.Fprintf(w, "Income data saved successfully")
 		}
-
-		fmt.Fprintf(w, "Income data saved successfully")
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func insertIncome(db *sql.DB, income Income) error {
-	_, err := db.Exec("INSERT INTO incomes (income1, income2, income3) VALUES ($1, $2, $3)", income.Income1, income.Income2, income.Income3)
-	return err
 }
