@@ -1,4 +1,4 @@
-module github.com/bradyjst/reflect
+module github.com/bradyjst/reflectBE
 
 go 1.20
 

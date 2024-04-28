@@ -9,8 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	// Import your sqlc generated package
-
+	_ "github.com/bradyjst/reflectBE/internal/db"
 	_ "github.com/lib/pq"
 )
 
