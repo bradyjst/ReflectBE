@@ -1,6 +1,6 @@
 version: "1"
 packages:
-  - name: "db"
+  - name: "mydb"
     path: "./internal/db"
     queries: "./internal/db/queries"
     schema: "./internal/db/migrations"

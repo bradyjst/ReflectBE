@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 
-	_ "github.com/bradyjst/reflectBE/internal/db"
+	mydb "github.com/bradyjst/reflectBE/internal/db"
 	_ "github.com/lib/pq"
 )
 
@@ -17,6 +17,13 @@ type Income struct {
 	Income1 string `json:"income1"`
 	Income2 string `json:"income2"`
 	Income3 string `json:"income3"`
+}
+
+func NewNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: s, Valid: true}
 }
 
 func enableCors(w *http.ResponseWriter) {
@@ -42,7 +49,11 @@ func main() {
 	}
 	defer db.Close()
 
-	queries := db.New(db) // Create an instance of sqlc queries
+	if err := mydb.ApplyMigrations(db, connStr); err != nil {
+		log.Fatalf("Failed to apply database migrations: %v", err)
+	}
+
+	queries := mydb.New(db) // Create an instance of sqlc queries
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, your database is connected!")
@@ -59,11 +70,13 @@ func main() {
 				return
 			}
 
-			err := queries.CreateIncome(context.TODO(), db.CreateIncomeParams{
-				Income1: income.Income1,
-				Income2: income.Income2,
-				Income3: income.Income3,
-			})
+			params := mydb.CreateIncomeParams{
+				Income1: NewNullString(income.Income1),
+				Income2: NewNullString(income.Income2),
+				Income3: NewNullString(income.Income3),
+			}
+
+			err := queries.CreateIncome(context.TODO(), params)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
