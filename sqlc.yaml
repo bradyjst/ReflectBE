@@ -1,7 +1,7 @@
 version: "1"
 packages:
   - name: "mydb"
-    path: "./internal/db"
+    path: "./internal/db/sqlcgen"
     queries: "./internal/db/queries"
     schema: "./internal/db/migrations"
     engine: "postgresql"

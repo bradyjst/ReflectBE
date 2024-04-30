@@ -1,4 +1,4 @@
-package mydb
+package migratedb
 
 import (
 	"database/sql"

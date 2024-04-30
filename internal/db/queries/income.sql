@@ -1,5 +1,8 @@
--- name: GetIncomes :many
-SELECT * FROM incomes;
+-- name: GetIncomesForUser :many
+SELECT * FROM finances
+WHERE type = 'income' AND user_id = $1;
 
 -- name: CreateIncome :exec
-INSERT INTO incomes (income1, income2, income3) VALUES ($1, $2, $3);
+INSERT INTO finances (user_id, type, source, amount, date, description)
+VALUES ($1, 'income', $2, $3, $4, $5);
+

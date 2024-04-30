@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"os"
 
-	mydb "github.com/bradyjst/reflectBE/internal/db"
+	_ "github.com/bradyjst/reflectBE/internal/db/"
+	mydb "github.com/bradyjst/reflectBE/internal/db/sqlcgen"
 	_ "github.com/lib/pq"
 )
 
@@ -70,11 +71,11 @@ func main() {
 				return
 			}
 
-			params := mydb.CreateIncomeParams{
-				Income1: NewNullString(income.Income1),
-				Income2: NewNullString(income.Income2),
-				Income3: NewNullString(income.Income3),
-			}
+			// params := mydb.CreateIncomeParams{
+			// 	Income1: NewNullString(income.Income1),
+			// 	Income2: NewNullString(income.Income2),
+			// 	Income3: NewNullString(income.Income3),
+			// }
 
 			err := queries.CreateIncome(context.TODO(), params)
 			if err != nil {
