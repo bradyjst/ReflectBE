@@ -8,16 +8,28 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-	_ "github.com/bradyjst/reflectBE/internal/db/"
+	migratedb "github.com/bradyjst/reflectBE/internal/db"
 	mydb "github.com/bradyjst/reflectBE/internal/db/sqlcgen"
+	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
-type Income struct {
-	Income1 string `json:"income1"`
-	Income2 string `json:"income2"`
-	Income3 string `json:"income3"`
+type Finance struct {
+	UserID      int32     `json:"user_id"`
+	Type        string    `json:"type"` // 'income' or 'expense'
+	Source      string    `json:"source"`
+	Amount      string    `json:"amount"`
+	Date        time.Time `json:"date,omitempty"` // Optional, defaults to CURRENT_TIMESTAMP if not provided
+	Description string    `json:"description,omitempty"`
+}
+
+type User struct {
+	Username string `json:"username"`
+	Password string `json:"password_hash"`
+	Email    string `json:"email"`
 }
 
 func NewNullString(s string) sql.NullString {
@@ -27,16 +39,103 @@ func NewNullString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: true}
 }
 
-func enableCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
+func NewNullTime(t time.Time) sql.NullTime {
+	if t.IsZero() {
+		return sql.NullTime{Valid: false} // Return a NullTime with Valid set to false if time is zero
+	}
+	return sql.NullTime{Time: t, Valid: true} // Otherwise, return the time with Valid set to true
 }
 
-func handleOptions(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "OPTIONS" {
+func enableCors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+func checkPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+func registerHandler(queries *mydb.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		defer r.Body.Close()
+		var user User
+		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		hashedPassword, err := hashPassword(user.Password)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = queries.CreateUser(context.TODO(), mydb.CreateUserParams{
+			Username:     user.Username,
+			PasswordHash: hashedPassword,
+			Email:        user.Email,
+		})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(w, "User account created!")
+	}
+}
+
+func loginHandler(queries *mydb.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		defer r.Body.Close()
+		var user User
+		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+			log.Printf("Error decoding request body: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		dbUser, err := queries.GetUserByUsername(context.TODO(), user.Username)
+		if err != nil {
+			log.Printf("Error fetching user: %v", err)
+			http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+			return
+		}
+
+		if !checkPasswordHash(user.Password, dbUser.PasswordHash) {
+			log.Printf("Invalid password for user: %s", user.Username)
+			http.Error(w, "Invalid username r password", http.StatusUnauthorized)
+		}
+
 		w.WriteHeader(http.StatusOK)
-		return
+		fmt.Fprintf(w, "Login successful")
+
 	}
 }
 
@@ -50,42 +149,52 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := mydb.ApplyMigrations(db, connStr); err != nil {
+	if err := migratedb.ApplyMigrations(db, connStr); err != nil {
 		log.Fatalf("Failed to apply database migrations: %v", err)
 	}
 
 	queries := mydb.New(db) // Create an instance of sqlc queries
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, your database is connected!")
-	})
+	r := mux.NewRouter()
 
-	http.HandleFunc("/submit-income", func(w http.ResponseWriter, r *http.Request) {
-		enableCors(&w)
-		handleOptions(w, r)
-		if r.Method == "POST" {
-			defer r.Body.Close()
-			var income Income
-			if err := json.NewDecoder(r.Body).Decode(&income); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
+	r.HandleFunc("/register", registerHandler(queries)).Methods("POST", "OPTIONS")
+	r.HandleFunc("login", loginHandler(queries)).Methods("POST", "OPTIONS")
 
-			// params := mydb.CreateIncomeParams{
-			// 	Income1: NewNullString(income.Income1),
-			// 	Income2: NewNullString(income.Income2),
-			// 	Income3: NewNullString(income.Income3),
-			// }
-
-			err := queries.CreateIncome(context.TODO(), params)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			fmt.Fprintf(w, "Income data saved successfully")
+	r.HandleFunc("/submit-finance", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
 		}
-	})
+
+		defer r.Body.Close()
+		var finance Finance
+		if err := json.NewDecoder(r.Body).Decode(&finance); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		userID := 1 // Placeholder for now, assuming user is authenticated
+		params := mydb.CreateFinanceParams{
+			UserID:      int32(userID),
+			Source:      NewNullString(finance.Source),
+			Amount:      NewNullString(finance.Amount),
+			Date:        NewNullTime(finance.Date),
+			Description: NewNullString(finance.Description),
+		}
+		err := queries.CreateFinance(context.TODO(), params)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Fprintf(w, "Income data saved successfully")
+	}).Methods("POST", "OPTIONS")
+
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, your database is connected!")
+	}).Methods("GET")
+
+	http.Handle("/", enableCors(r))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
