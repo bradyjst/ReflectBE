@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bradyjst/reflectBE/internal/db"
+	"github.com/bradyjst/reflectBE/internal/db/"
 )
 
 type Finance struct {

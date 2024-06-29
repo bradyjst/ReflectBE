@@ -1,9 +1,9 @@
 version: "1"
 packages:
   - name: "mydb"
-    path: "./internal/db/sqlcgen"
-    queries: "./internal/db/queries"
-    schema: "./internal/db/migrations"
+    path: "./internal/db/gen/sqlcgen"
+    queries: "./internal/db/gen/queries"
+    schema: "./internal/db/gen/migrations"
     engine: "postgresql"
     emit_json_tags: true
     emit_prepared_queries: false

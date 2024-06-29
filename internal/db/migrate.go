@@ -11,7 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-//go:embed migrations/*
+//go:embed gen/migrations/*
 var migrations embed.FS
 
 func ApplyMigrations(db *sql.DB, dsn string) error {
