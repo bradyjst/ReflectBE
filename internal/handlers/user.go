@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bradyjst/reflectBE/internal/db"
+	"github.com/bradyjst/reflectBE/internal/db/gen/sqlcgen"
 	"github.com/bradyjst/reflectBE/internal/utils"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -17,7 +17,7 @@ type User struct {
 	Email    string `json:"email"`
 }
 
-func RegisterHandler(queries *db.Queries) http.HandlerFunc {
+func RegisterHandler(queries *mydb.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -37,7 +37,7 @@ func RegisterHandler(queries *db.Queries) http.HandlerFunc {
 			return
 		}
 
-		err = queries.CreateUser(context.TODO(), db.CreateUserParams{
+		err = queries.CreateUser(context.TODO(), mydb.CreateUserParams{
 			Username:     user.Username,
 			PasswordHash: string(hashedPassword),
 			Email:        user.Email,
@@ -52,7 +52,7 @@ func RegisterHandler(queries *db.Queries) http.HandlerFunc {
 	}
 }
 
-func LoginHandler(queries *db.Queries) http.HandlerFunc {
+func LoginHandler(queries *mydb.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

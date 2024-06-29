@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/bradyjst/reflectBE/internal/db"
+	"github.com/bradyjst/reflectBE/internal/db/gen/sqlcgen"
 
 	"github.com/bradyjst/reflectBE/internal/handlers"
 	"github.com/bradyjst/reflectBE/internal/middleware"
@@ -29,7 +30,7 @@ func main() {
 		log.Fatalf("Failed to apply database migrations: %v", err)
 	}
 
-	queries := db.NewQueries(dbConn) // Create an instance of sqlc queries
+	queries := mydb.New(dbConn) // Create an instance of sqlc queries
 
 	r := mux.NewRouter()
 

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bradyjst/reflectBE/internal/db/"
+	"github.com/bradyjst/reflectBE/internal/db/gen/sqlcgen"
 )
 
 type Finance struct {
@@ -20,7 +20,7 @@ type Finance struct {
 	Description string    `json:"description,omitempty"`
 }
 
-func SubmitFinanceHandler(queries *db.Queries) http.HandlerFunc {
+func SubmitFinanceHandler(queries *mydb.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -35,7 +35,7 @@ func SubmitFinanceHandler(queries *db.Queries) http.HandlerFunc {
 		}
 
 		userID := 1 // Placeholder for now, assuming user is authenticated
-		params := db.CreateFinanceParams{
+		params := mydb.CreateFinanceParams{
 			UserID:      int32(userID),
 			Source:      NewNullString(finance.Source),
 			Amount:      NewNullString(finance.Amount),
