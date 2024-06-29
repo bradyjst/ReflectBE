@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/bradyjst/reflectBE/internal/db"
+
 	"github.com/bradyjst/reflectBE/internal/handlers"
 	"github.com/bradyjst/reflectBE/internal/middleware"
 	"github.com/gorilla/mux"
@@ -24,7 +25,7 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	if err := db.ApplyMigrations(dbConn, connStr); err != nil {
+	if err := migratedb.ApplyMigrations(dbConn, connStr); err != nil {
 		log.Fatalf("Failed to apply database migrations: %v", err)
 	}
 

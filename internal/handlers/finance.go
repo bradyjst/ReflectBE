@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -50,4 +51,18 @@ func SubmitFinanceHandler(queries *db.Queries) http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 		fmt.Fprintf(w, "Income data saved successfully")
 	}
+}
+
+func NewNullTime(t time.Time) sql.NullTime {
+	if t.IsZero() {
+		return sql.NullTime{Valid: false} // Return a NullTime with Valid set to false if time is zero
+	}
+	return sql.NullTime{Time: t, Valid: true} // Otherwise, return the time with Valid set to true
+}
+
+func NewNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: s, Valid: true}
 }
