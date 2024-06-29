@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+
 	migratedb "github.com/bradyjst/reflectBE/internal/db"
 	mydb "github.com/bradyjst/reflectBE/internal/db/sqlcgen"
 	"github.com/gorilla/mux"
@@ -30,6 +32,49 @@ type User struct {
 	Username string `json:"username"`
 	Password string `json:"password_hash"`
 	Email    string `json:"email"`
+}
+
+var jwtKey = []byte("my_secret_key")
+
+func generateJWT(username string) (string, error) {
+	expirationTime := time.Now().Add(24 * time.Hour)
+	claims := &jwt.StandardClaims{
+		Subject:   username,
+		ExpiresAt: expirationTime.Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
+
+}
+
+func validateJWT(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Missing Authorization Header", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader[len("Bearer "):]
+
+		claims := &jwt.StandardClaims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "username", claims.Subject)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func NewNullString(s string) sql.NullString {
@@ -133,8 +178,16 @@ func loginHandler(queries *mydb.Queries) http.HandlerFunc {
 			http.Error(w, "Invalid username r password", http.StatusUnauthorized)
 		}
 
+		token, err := generateJWT(user.Username)
+		if err != nil {
+			log.Printf("Error generating token: %v", err)
+			http.Error(w, "Error generating token", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Login successful")
+		json.NewEncoder(w).Encode(map[string]string{"token": token})
 
 	}
 }
@@ -158,7 +211,10 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/register", registerHandler(queries)).Methods("POST", "OPTIONS")
-	r.HandleFunc("login", loginHandler(queries)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/login", loginHandler(queries)).Methods("POST", "OPTIONS")
+
+	protected := r.PathPrefix("/api").Subrouter()
+	protected.Use(validateJWT)
 
 	r.HandleFunc("/submit-finance", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "OPTIONS" {
