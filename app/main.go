@@ -7,9 +7,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/bradyjst/reflectBE/internal/db"
-	"github.com/bradyjst/reflectBE/internal/db/gen/sqlcgen"
-
 	"github.com/bradyjst/reflectBE/internal/handlers"
 	"github.com/bradyjst/reflectBE/internal/middleware"
 	"github.com/gorilla/mux"
